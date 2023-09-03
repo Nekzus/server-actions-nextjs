@@ -1,25 +1,33 @@
 "use client";
 
+import ButtonForm from "./button-form.todo";
 import { createTodo } from "../actions/todo.action";
+import toast from "react-hot-toast";
 import { useRef } from "react";
 
 const FormTodo = () => {
   const formRef = useRef<HTMLFormElement>(null);
   const handleSubmit = async (data: FormData) => {
     const title = data.get("title") as string;
-    await createTodo(title);
+    if (!title || !title.trim()) {
+      return toast.error("Title is required");
+    }
+    const res = await createTodo(title);
+    if (res.error) {
+      return toast.error(res.error);
+    }
     formRef.current?.reset();
+    toast.success("Todo created");
   };
   return (
     <form ref={formRef} action={handleSubmit} className="flex">
       <input
         type="text"
         name="title"
-        className="border rounded border-gray-400 mr-2 p-2"
+        placeholder="Title todo"
+        className="border rounded border-gray-400 mr-2 p-2 w-full"
       />
-      <button type="submit" className="border rounded border-gray-400 w-28 p-2">
-        Add
-      </button>
+      <ButtonForm />
     </form>
   );
 };
