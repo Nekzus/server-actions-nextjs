@@ -1,11 +1,17 @@
 "use server";
 
-import { TodoZodSchema } from "../schema/todo.zod.schema";
-import { ZodError } from "zod";
 import { prisma } from "@/libs/prismadb";
 import { revalidatePath } from "next/cache";
+import { ZodError } from "zod";
+import { TodoZodSchema } from "../schema/todo.zod.schema";
 
-export const createTodo = async (title: string) => {
+interface TodoResponse {
+  success: boolean;
+
+  message: string;
+}
+
+export const createTodo = async (title: string): Promise<TodoResponse> => {
   try {
     TodoZodSchema.parse({ title });
     await prisma.todo.create({ data: { title } });

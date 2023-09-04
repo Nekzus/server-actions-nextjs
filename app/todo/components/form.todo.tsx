@@ -1,11 +1,11 @@
 "use client";
 
+import { useRef } from "react";
 import toast from "react-hot-toast";
 import { ZodError } from "zod";
 import { createTodo } from "../actions/todo.action";
+import { TodoZodSchema } from "../schema/todo.zod.schema";
 import ButtonForm from "./button-form.todo";
-// import { TodoZodSchema } from "../schema/todo.zod.schema";
-import { useRef } from "react";
 
 const FormTodo = () => {
   const formRef = useRef<HTMLFormElement>(null);
@@ -13,13 +13,13 @@ const FormTodo = () => {
     const title = data.get("title") as string;
 
     try {
-      // TodoZodSchema.parse({ title });
+      TodoZodSchema.parse({ title });
 
       const responseBackend = await createTodo(title);
       if (!responseBackend.success) {
         return toast.error(responseBackend.message);
       }
-      toast.success("Todo created");
+      toast.success(responseBackend.message);
     } catch (error) {
       if (error instanceof ZodError) {
         return error.issues.map((issue) => toast.error(issue.message));
