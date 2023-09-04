@@ -1,20 +1,25 @@
 "use server";
 
-import { prisma } from "../../../libs/prismadb";
+import { TodoZodSchema } from "../schema/todo.zod.schema";
+import { ZodError } from "zod";
+import { prisma } from "@/libs/prismadb";
 import { revalidatePath } from "next/cache";
 
 export const createTodo = async (title: string) => {
-  if (!title || !title.trim()) {
-    return { error: "Title is required" };
-  }
   try {
+    TodoZodSchema.parse({ title });
     await prisma.todo.create({ data: { title } });
     revalidatePath("/todo");
     return {
       success: true,
+      message: "Todo created",
     };
   } catch (error) {
-    return { error: "Error creating todo" };
+    if (error instanceof ZodError) {
+      return { success: false, message: error.issues[0].message };
+    }
+
+    return { success: false, message: "Error creating todo" };
   }
 };
 
