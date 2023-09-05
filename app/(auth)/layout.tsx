@@ -3,6 +3,6 @@ interface AuthLayoutProps {
 }
 
 const AuthLayout = ({ children }: AuthLayoutProps) => {
-  return <div className="grid place-items-center min-h-screen">{children}</div>;
+  return <div className="grid min-h-screen place-items-center">{children}</div>;
 };
 export default AuthLayout;

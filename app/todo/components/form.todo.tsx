@@ -38,7 +38,7 @@ const FormTodo = () => {
         type="text"
         name="title"
         placeholder="Title todo"
-        className="border rounded border-gray-400 mr-2 p-2 w-full"
+        className="mr-2 w-full rounded border border-gray-400 p-2"
       />
       <ButtonForm />
     </form>
