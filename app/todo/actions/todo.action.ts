@@ -1,10 +1,10 @@
 "use server";
 
+import { TodoZodSchema } from "../schema/todo.zod.schema";
+import { ZodError } from "zod";
+import { auth } from "@clerk/nextjs";
 import { prisma } from "@/libs/prismadb";
 import { revalidatePath } from "next/cache";
-import { ZodError } from "zod";
-import { TodoZodSchema } from "../schema/todo.zod.schema";
-
 interface TodoResponse {
   success: boolean;
 
@@ -12,9 +12,14 @@ interface TodoResponse {
 }
 
 export const createTodo = async (title: string): Promise<TodoResponse> => {
+  const { userId }: { userId: string | null } = auth();
+
+  if (!userId) {
+    return { success: false, message: "User not authenticated" };
+  }
   try {
     TodoZodSchema.parse({ title });
-    await prisma.todo.create({ data: { title } });
+    await prisma.todo.create({ data: { title, userId } });
     revalidatePath("/todo");
     return {
       success: true,

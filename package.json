@@ -10,8 +10,8 @@
     "prisma:generate": "prisma generate"
   },
   "dependencies": {
-    "@clerk/nextjs": "^4.23.3",
-    "@prisma/client": "^5.2.0",
+    "@clerk/nextjs": "4.23.3",
+    "@prisma/client": "5.2.0",
     "@types/node": "20.5.6",
     "@types/react": "18.2.21",
     "@types/react-dom": "18.2.7",
@@ -20,11 +20,11 @@
     "postcss": "8.4.28",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "react-hot-toast": "^2.4.1",
-    "react-icons": "^4.10.1",
+    "react-hot-toast": "2.4.1",
+    "react-icons": "4.10.1",
     "tailwindcss": "3.3.3",
     "typescript": "5.2.2",
-    "zod": "^3.22.2"
+    "zod": "3.22.2"
   },
   "devDependencies": {
     "prisma": "5.2.0"
