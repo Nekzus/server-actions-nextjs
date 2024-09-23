@@ -27,51 +27,70 @@ jobs:
           # Contador de eliminaciones
           DELETED_COUNT=0
 
-          # Manejo de paginación manual
-          NEXT_CURSOR="null"
-
-          while true; do
-            # Obtener lista de ejecuciones completadas y antiguas en una sola llamada
-            RUNS=$(gh api graphql -f query='
-              query($limit: Int!, $cursor: String) {
-                repository(owner: "'${{ github.repository_owner }}'", name: "'${{ github.event.repository.name }}'") {
-                  workflowRuns(first: $limit, after: $cursor, orderBy: {field: CREATED_AT, direction: DESC}, statuses: [COMPLETED]) {
-                    edges {
-                      node {
-                        id
-                        createdAt
-                      }
-                      cursor
-                    }
+          # Obtener todos los workflows del repositorio
+          WORKFLOWS=$(gh api graphql -f query='
+            query($owner: String!, $repo: String!) {
+              repository(owner: $owner, name: $repo) {
+                workflows(first: 100) {
+                  nodes {
+                    id
+                    name
                   }
                 }
               }
-            ' -F cursor="${NEXT_CURSOR}" -F limit="${PER_PAGE}" --jq '.data.repository.workflowRuns.edges | map(select(.node.createdAt < "'$DELETE_BEFORE_DATE'")) | .[] | .node.id + "," + .cursor')
+            }
+          ' -F owner="${{ github.repository_owner }}" -F repo="${{ github.event.repository.name }}" --jq '.data.repository.workflows.nodes[].id')
 
-            # Si no hay más ejecuciones, salir del bucle
-            if [ -z "$RUNS" ]; then
-              echo "No more old workflow runs to delete."
-              break
-            fi
+          # Iterar sobre cada workflow y eliminar ejecuciones antiguas
+          for workflow_id in $WORKFLOWS; do
+            # Manejo de paginación manual
+            NEXT_CURSOR="null"
+            
+            while true; do
+              # Obtener lista de ejecuciones completadas y antiguas en una sola llamada
+              RUNS=$(gh api graphql -f query='
+                query($workflowId: ID!, $limit: Int!, $cursor: String) {
+                  node(id: $workflowId) {
+                    ... on Workflow {
+                      runs(first: $limit, after: $cursor, statuses: COMPLETED) {
+                        edges {
+                          node {
+                            id
+                            createdAt
+                          }
+                          cursor
+                        }
+                      }
+                    }
+                  }
+                }
+              ' -F workflowId="${workflow_id}" -F cursor="${NEXT_CURSOR}" -F limit="${PER_PAGE}" --jq '.data.node.runs.edges | map(select(.node.createdAt < "'$DELETE_BEFORE_DATE'")) | .[] | .node.id + "," + .cursor')
 
-            # Iterar sobre cada ejecución y eliminarla
-            while IFS=, read -r run_id cursor; do
-              echo "Deleting workflow run with ID: $run_id"
-              gh run delete "$run_id" -y || continue
-              DELETED_COUNT=$((DELETED_COUNT+1))
-
-              # Esperar un segundo entre eliminaciones para no sobrecargar la API
-              sleep 1
-
-              # Si alcanzamos el número máximo de eliminaciones, salir del bucle
-              if [ $DELETED_COUNT -ge $MAX_DELETIONS ]; then
-                echo "Reached maximum deletions for this run: $MAX_DELETIONS"
-                break 2
+              # Si no hay más ejecuciones, salir del bucle
+              if [ -z "$RUNS" ]; then
+                echo "No more old workflow runs to delete for workflow ID: $workflow_id."
+                break
               fi
 
-              # Actualizar el cursor para la siguiente paginación
-              NEXT_CURSOR=$cursor
-            done <<< "$RUNS"
+              # Iterar sobre cada ejecución y eliminarla
+              while IFS=, read -r run_id cursor; do
+                echo "Deleting workflow run with ID: $run_id"
+                gh run delete "$run_id" -y || continue
+                DELETED_COUNT=$((DELETED_COUNT+1))
+
+                # Esperar un segundo entre eliminaciones para no sobrecargar la API
+                sleep 1
+
+                # Si alcanzamos el número máximo de eliminaciones, salir del bucle
+                if [ $DELETED_COUNT -ge $MAX_DELETIONS ]; then
+                  echo "Reached maximum deletions for this run: $MAX_DELETIONS"
+                  break 2
+                fi
+
+                # Actualizar el cursor para la siguiente paginación
+                NEXT_CURSOR=$cursor
+              done <<< "$RUNS"
+            done
           done
 
           echo "Total workflow runs deleted: $DELETED_COUNT"
