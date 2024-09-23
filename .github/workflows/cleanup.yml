@@ -14,14 +14,9 @@ jobs:
         run: |
           sudo apt-get install -y gh jq
 
-      - name: Authenticate GitHub CLI
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo "${GITHUB_TOKEN}" | gh auth login --with-token
-
       - name: Delete old workflow runs
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Usa el GITHUB_TOKEN directamente
           DAYS_TO_KEEP: 30 # Cambia el número de días según sea necesario
           PER_PAGE: 100    # Número de ejecuciones por página (máximo 100)
           MAX_DELETIONS: 50 # Número máximo de ejecuciones a eliminar por ciclo
@@ -51,9 +46,7 @@ jobs:
                   }
                 }
               }
-            ' -F cursor="${NEXT_CURSOR}" -F limit="${PER_PAGE}" \
-            | jq -r --arg DATE "$DELETE_BEFORE_DATE" '
-                .data.repository.workflowRuns.edges | map(select(.node.createdAt < $DATE)) | .[] | .node.id + "," + .cursor')
+            ' -F cursor="${NEXT_CURSOR}" -F limit="${PER_PAGE}" --jq '.data.repository.workflowRuns.edges | map(select(.node.createdAt < "'$DELETE_BEFORE_DATE'")) | .[] | .node.id + "," + .cursor')
 
             # Si no hay más ejecuciones, salir del bucle
             if [ -z "$RUNS" ]; then
