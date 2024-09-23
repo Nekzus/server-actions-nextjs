@@ -10,18 +10,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Set up GitHub CLI
+      - name: Set up GitHub CLI and jq
         run: |
           sudo apt-get install -y gh jq
 
       - name: Authenticate GitHub CLI
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+          echo "${GITHUB_TOKEN}" | gh auth login --with-token
 
       - name: Delete old workflow runs
         env:
           DAYS_TO_KEEP: 30 # Cambia el número de días según sea necesario
-          PER_PAGE: 100    # Número de ejecuciones por página
+          PER_PAGE: 100    # Número de ejecuciones por página (máximo 100)
           MAX_DELETIONS: 50 # Número máximo de ejecuciones a eliminar por ciclo
         run: |
           # Obtener la fecha de límite en formato ISO 8601
@@ -30,12 +32,28 @@ jobs:
           # Contador de eliminaciones
           DELETED_COUNT=0
 
-          # Iterar sobre todas las páginas de ejecuciones completadas
-          for (( PAGE=1; ; PAGE++ )); do
-            # Obtener lista de ejecuciones completadas y antiguas
-            RUNS=$(gh run list --limit $PER_PAGE --json databaseId,createdAt,status \
-                  --status completed --page $PAGE \
-                  | jq -r --arg DATE "$DELETE_BEFORE_DATE" '.[] | select(.createdAt < $DATE) | .databaseId')
+          # Manejo de paginación manual
+          NEXT_CURSOR=""
+
+          while true; do
+            # Obtener lista de ejecuciones completadas y antiguas en una sola llamada
+            RUNS=$(gh api graphql -f query='
+              query($cursor: String, $limit: Int!) {
+                repository(owner: "'${{ github.repository_owner }}'", name: "'${{ github.event.repository.name }}'") {
+                  workflowRuns(first: $limit, after: $cursor, orderBy: {field: CREATED_AT, direction: DESC}, statuses: COMPLETED) {
+                    edges {
+                      node {
+                        id
+                        createdAt
+                      }
+                      cursor
+                    }
+                  }
+                }
+              }
+            ' -F cursor="${NEXT_CURSOR}" -F limit="${PER_PAGE}" \
+            | jq -r --arg DATE "$DELETE_BEFORE_DATE" '
+                .data.repository.workflowRuns.edges | map(select(.node.createdAt < $DATE)) | .[] | .node.id + "," + .cursor')
 
             # Si no hay más ejecuciones, salir del bucle
             if [ -z "$RUNS" ]; then
@@ -43,12 +61,12 @@ jobs:
               break
             fi
 
-            # Eliminar cada ejecución y actualizar contador
-            for run_id in $RUNS; do
+            # Iterar sobre cada ejecución y eliminarla
+            while IFS=, read -r run_id cursor; do
               echo "Deleting workflow run with ID: $run_id"
-              gh run delete "$run_id" -y
+              gh run delete "$run_id" -y || continue
               DELETED_COUNT=$((DELETED_COUNT+1))
-              
+
               # Esperar un segundo entre eliminaciones para no sobrecargar la API
               sleep 1
 
@@ -57,7 +75,10 @@ jobs:
                 echo "Reached maximum deletions for this run: $MAX_DELETIONS"
                 break 2
               fi
-            done
+
+              # Actualizar el cursor para la siguiente paginación
+              NEXT_CURSOR=$cursor
+            done <<< "$RUNS"
           done
 
           echo "Total workflow runs deleted: $DELETED_COUNT"
