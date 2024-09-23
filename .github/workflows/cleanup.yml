@@ -28,14 +28,14 @@ jobs:
           DELETED_COUNT=0
 
           # Manejo de paginación manual
-          NEXT_CURSOR=""
+          NEXT_CURSOR="null"
 
           while true; do
             # Obtener lista de ejecuciones completadas y antiguas en una sola llamada
             RUNS=$(gh api graphql -f query='
-              query($cursor: String, $limit: Int!) {
+              query($limit: Int!, $cursor: String) {
                 repository(owner: "'${{ github.repository_owner }}'", name: "'${{ github.event.repository.name }}'") {
-                  workflowRuns(first: $limit, after: $cursor, orderBy: {field: CREATED_AT, direction: DESC}, statuses: COMPLETED) {
+                  workflowRuns(first: $limit, after: $cursor, orderBy: {field: CREATED_AT, direction: DESC}, statuses: [COMPLETED]) {
                     edges {
                       node {
                         id
