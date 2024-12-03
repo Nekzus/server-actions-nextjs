@@ -27,7 +27,7 @@
     "zod": "3.23.8"
   },
   "devDependencies": {
-    "prettier": "3.3.3",
+    "prettier": "3.4.1",
     "prettier-plugin-tailwindcss": "0.6.9",
     "prisma": "5.22.0"
   }
