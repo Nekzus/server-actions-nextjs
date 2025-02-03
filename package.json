@@ -10,7 +10,7 @@
     "prisma:generate": "prisma generate"
   },
   "dependencies": {
-    "@clerk/nextjs": "4.29.3",
+    "@clerk/nextjs": "6.10.6",
     "@prisma/client": "6.0.1",
     "@types/node": "22.10.2",
     "@types/react": "18.3.6",
